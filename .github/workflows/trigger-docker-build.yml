@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Dispatch to blitzerr-docker
         uses: actions/github-script@v7
+        env:
+          DISPATCH_TOKEN: ${{ secrets.GH_PAT }}
         with:
           github-token: ${{ secrets.GH_PAT }}
           script: |
@@ -21,6 +23,7 @@ jobs:
               event_type: 'app-updated',
               client_payload: {
                 sha: context.sha,
-                ref: context.ref
+                ref: context.ref,
+                token: process.env.DISPATCH_TOKEN
               }
             })
