@@ -75,6 +75,8 @@ def _fetch_downloads(opener: urllib.request.OpenerDirector, base_url: str, categ
 
 
 def _log_downloads(downloads: list[TorrentInfo], category: str) -> None:
+    if not downloads:
+        return
     lines = [f"[qbittorrent] {len(downloads)} download(s) in category '{category}':"]
     for d in downloads:
         pct = f"{d.progress * 100:.1f}%"

@@ -68,6 +68,8 @@ def _fetch_queue(base_url: str, api_key: str, category: str) -> list[NzbInfo]:
 
 
 def _log_downloads(downloads: list[NzbInfo], category: str) -> None:
+    if not downloads:
+        return
     lines = [f"[sabnzbd] {len(downloads)} download(s) in category '{category}':"]
     for d in downloads:
         pct = f"{d.progress * 100:.1f}%"
