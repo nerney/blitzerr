@@ -1,6 +1,6 @@
-import os
 import logging
-from dataclasses import dataclass, field
+import os
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 
 import yaml
@@ -8,48 +8,157 @@ import yaml
 CONFIG_DIR = Path(os.environ.get("BLITZERR_CONFIG_DIR", "/config"))
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 DB_PATH = CONFIG_DIR / "blitzerr.db"
+NFLVERSE_REFRESH_HOURS = 12
 
 logger = logging.getLogger(__name__)
+
+_REDACTED = {"api_key", "password"}
+
+
+# ── Section dataclasses ───────────────────────────────────────────────
+
+@dataclass
+class ServerConfig:
+    host: str = "::"
+    port: int = 8012
+    log_level: str = "info"
+
+
+@dataclass
+class LibraryConfig:
+    root_path: str = "/data/media/blitzerr"
+
+
+@dataclass
+class ProwlarrConfig:
+    url: str = "http://localhost:9696"
+    api_key: str = ""
+
+
+@dataclass
+class QBittorrentConfig:
+    url: str = "http://localhost:8888"
+    username: str = ""
+    password: str = ""
+    category: str = "blitzerr"
+
+
+@dataclass
+class SabnzbdConfig:
+    url: str = "http://localhost:8080"
+    api_key: str = ""
+    category: str = "blitzerr"
 
 
 @dataclass
 class Settings:
-    host: str = "0.0.0.0"
-    port: int = 8012
-    log_level: str = "info"
-    nflverse_refresh_interval_hours: int = 12
-    db_path: Path = field(default_factory=lambda: DB_PATH)
+    server: ServerConfig = field(default_factory=ServerConfig)
+    library: LibraryConfig = field(default_factory=LibraryConfig)
+    prowlarr: ProwlarrConfig = field(default_factory=ProwlarrConfig)
+    qbittorrent: QBittorrentConfig = field(default_factory=QBittorrentConfig)
+    sabnzbd: SabnzbdConfig = field(default_factory=SabnzbdConfig)
 
+
+_SECTIONS: list[tuple[str, type]] = [
+    ("server", ServerConfig),
+    ("library", LibraryConfig),
+    ("prowlarr", ProwlarrConfig),
+    ("qbittorrent", QBittorrentConfig),
+    ("sabnzbd", SabnzbdConfig),
+]
+
+
+# ── Config file helpers ───────────────────────────────────────────────
+
+def _find_config_file() -> Path | None:
+    for name in ("config.yaml", "config.yml"):
+        p = CONFIG_DIR / name
+        if p.exists():
+            return p
+    return None
+
+
+def _serialize(s: Settings) -> str:
+    """Produce a clean, comment-annotated YAML string from Settings."""
+    sv = s.server
+    li = s.library
+    pr = s.prowlarr
+    qb = s.qbittorrent
+    sa = s.sabnzbd
+    return (
+        "# Blitzerr configuration\n"
+        "# Updated on startup — missing fields are added automatically.\n"
+        "\n"
+        "server:\n"
+        f'  host: "{sv.host}"  # "::" = IPv6 dual-stack (accepts IPv4 too)\n'
+        f"  port: {sv.port}\n"
+        f"  log_level: {sv.log_level}  # debug | info | warning | error\n"
+        "\n"
+        "library:\n"
+        f"  root_path: {li.root_path}\n"
+        "\n"
+        "prowlarr:\n"
+        f"  url: {pr.url}\n"
+        f'  api_key: "{pr.api_key}"\n'
+        "\n"
+        "qbittorrent:\n"
+        f"  url: {qb.url}\n"
+        f'  username: "{qb.username}"\n'
+        f'  password: "{qb.password}"\n'
+        f"  category: {qb.category}\n"
+        "\n"
+        "sabnzbd:\n"
+        f"  url: {sa.url}\n"
+        f'  api_key: "{sa.api_key}"\n'
+        f"  category: {sa.category}\n"
+    )
+
+
+def _write_config(s: Settings) -> None:
+    """Atomically write config.yaml, preserving any existing .yml path."""
+    target = _find_config_file() or CONFIG_FILE
+    if target.suffix == ".yml":
+        target = target.with_suffix(".yaml")
+    tmp = target.with_suffix(".tmp")
+    tmp.write_text(_serialize(s), encoding="utf-8")
+    tmp.replace(target)
+
+
+def _log_config(s: Settings) -> None:
+    def fmt(obj) -> str:
+        parts = []
+        for f in fields(obj):
+            val = "***" if f.name in _REDACTED else getattr(obj, f.name)
+            parts.append(f"{f.name}={val}")
+        return "  ".join(parts)
+
+    for key, _ in _SECTIONS:
+        logger.info("[config] %-12s %s", key + ":", fmt(getattr(s, key)))
+
+
+# ── Main loader ───────────────────────────────────────────────────────
 
 def load_settings() -> Settings:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
     data: dict = {}
-    if CONFIG_FILE.exists():
+    config_file = _find_config_file()
+    if config_file:
         try:
-            with CONFIG_FILE.open() as f:
+            with config_file.open() as f:
                 data = yaml.safe_load(f) or {}
         except Exception as exc:
-            logger.warning("Could not parse config file %s: %s", CONFIG_FILE, exc)
-
-    # Environment variables override YAML (BLITZERR_PORT, BLITZERR_LOG_LEVEL, etc.)
-    env_map = {
-        "BLITZERR_HOST": ("host", str),
-        "BLITZERR_PORT": ("port", int),
-        "BLITZERR_LOG_LEVEL": ("log_level", str),
-        "BLITZERR_NFLVERSE_REFRESH_INTERVAL_HOURS": ("nflverse_refresh_interval_hours", int),
-        "BLITZERR_DB_PATH": ("db_path", Path),
-    }
-    for env_key, (attr, cast) in env_map.items():
-        val = os.environ.get(env_key)
-        if val is not None:
-            data[attr] = cast(val)
+            logger.warning("Could not parse %s: %s", config_file, exc)
 
     s = Settings()
-    for attr in ("host", "port", "log_level", "nflverse_refresh_interval_hours", "db_path"):
-        if attr in data:
-            setattr(s, attr, data[attr])
+    for key, cls in _SECTIONS:
+        section_data = data.get(key)
+        if isinstance(section_data, dict):
+            valid = {f.name for f in fields(cls)}
+            setattr(s, key, cls(**{k: v for k, v in section_data.items() if k in valid}))
 
+    _write_config(s)
+    _log_config(s)
     return s
 
 

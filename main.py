@@ -10,9 +10,19 @@ from app.db.schema import init_db
 from app.api.router import api_router
 
 logging.basicConfig(
-    level=settings.log_level.upper(),
+    level=settings.server.log_level.upper(),
     format="%(asctime)s %(levelname)s %(name)s - %(message)s",
 )
+
+_BANNER = r"""
+    ____  ___ __
+   / __ )/   |                    ___
+  / __  / /| |    | | |          /  /
+ / /_/ / ___ |    | | | _______ /  / ______  ____  ____
+/_____/_/  |_|    |_|_||___  / / / / ___/ / / __ \/ __ \
+         🏈           / /  /_/ / / /   / / /  __/ / / /
+                     /_/       /_/\____/_/\____/_/ /_/
+"""
 
 
 @asynccontextmanager
@@ -36,10 +46,12 @@ app = FastAPI(
 app.include_router(api_router)
 
 if __name__ == "__main__":
+    print(_BANNER, flush=True)
     uvicorn.run(
         "main:app",
-        host=settings.host,
-        port=settings.port,
-        log_level=settings.log_level,
+        host=settings.server.host,
+        port=settings.server.port,
+        log_level=settings.server.log_level,
+        server_header=False,
         reload=False,
     )

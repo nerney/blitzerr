@@ -3,15 +3,14 @@ import logging
 from contextlib import contextmanager
 from pathlib import Path
 
-from app.core.config import settings
+from app.core.config import DB_PATH
 
 logger = logging.getLogger(__name__)
 
 
 def _get_db_path() -> Path:
-    path = Path(settings.db_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return path
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    return DB_PATH
 
 
 def get_connection() -> sqlite3.Connection:
