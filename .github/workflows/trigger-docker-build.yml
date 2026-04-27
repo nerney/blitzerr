@@ -1,0 +1,24 @@
+name: Trigger Docker build
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch to blitzerr-docker
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          script: |
+            await github.rest.repos.createDispatchEvent({
+              owner: 'nerney',
+              repo: 'blitzerr-docker',
+              event_type: 'app-updated',
+              client_payload: {
+                sha: context.sha,
+                ref: context.ref
+              }
+            })

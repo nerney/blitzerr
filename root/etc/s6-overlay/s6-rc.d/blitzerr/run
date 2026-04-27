@@ -1,3 +1,0 @@
-#!/command/with-contenv bash
-umask "${UMASK}"
-exec s6-setuidgid hotio /app/.venv/bin/python /app/main.py
