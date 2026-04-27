@@ -8,6 +8,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from app.core.config import NFLVERSE_REFRESH_HOURS
 from app.services.nflverse_sync import sync_all_if_stale
 from app.services.prowlarr import check_health as prowlarr_health, PROWLARR_HEALTH_INTERVAL_HOURS
+from app.services.qbittorrent import check_health as qbittorrent_health, QBITTORRENT_CHECK_INTERVAL_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,23 @@ def start_scheduler() -> None:
         trigger="date",
         run_date=now,
         id="prowlarr_health_startup",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.add_job(
+        qbittorrent_health,
+        trigger=IntervalTrigger(seconds=QBITTORRENT_CHECK_INTERVAL_SECONDS),
+        id="qbittorrent_health",
+        replace_existing=True,
+        max_instances=1,
+        misfire_grace_time=30,
+    )
+    scheduler.add_job(
+        qbittorrent_health,
+        trigger="date",
+        run_date=now,
+        id="qbittorrent_health_startup",
         replace_existing=True,
         max_instances=1,
     )
