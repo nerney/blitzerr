@@ -4,7 +4,7 @@ import logging
 import urllib.request
 from datetime import datetime, timezone
 
-from app.core.config import settings
+from app.core.config import settings, NFLVERSE_REFRESH_HOURS
 from app.db.connection import db_conn
 
 logger = logging.getLogger(__name__)
@@ -87,7 +87,7 @@ def is_sync_stale(dataset: str) -> bool:
     if last.tzinfo is None:
         last = last.replace(tzinfo=timezone.utc)
     age_hours = (datetime.now(timezone.utc) - last).total_seconds() / 3600
-    return age_hours >= settings.nflverse_refresh_interval_hours
+    return age_hours >= NFLVERSE_REFRESH_HOURS
 
 
 def get_last_sync_info(dataset: str) -> dict | None:
