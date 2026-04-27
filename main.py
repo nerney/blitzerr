@@ -40,8 +40,6 @@ def _log_config(level: str) -> dict:
         "root": {"level": lvl, "handlers": ["stdout"]},
         "loggers": {
             "uvicorn":        {"propagate": True, "level": lvl},
-            "uvicorn.error":  {"propagate": True, "level": lvl},
-            "uvicorn.access": {"propagate": True, "level": lvl},
         },
     }
 
