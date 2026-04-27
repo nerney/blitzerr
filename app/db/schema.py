@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS prowlarr_indexer_status (
 
 
 def init_db() -> None:
-    logger.info("Initialising database schema")
+    logger.info("Initialising databasw")
     with db_conn() as conn:
         conn.executescript(SCHEMA_SQL)
-    logger.info("Database schema ready")
+    logger.info("Database ready")

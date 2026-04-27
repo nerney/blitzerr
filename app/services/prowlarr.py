@@ -70,7 +70,6 @@ def fetch_usenet_indexers() -> list[dict]:
         idx for idx in indexers
         if idx.get("enable")
         and idx.get("protocol") == "usenet"
-        and idx.get("implementationName", "").lower() == "newznab"
         and _has_category(idx.get("capabilities", {}).get("categories", []), USENET_CATEGORY)
     ]
 
