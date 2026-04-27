@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 PROWLARR_HEALTH_INTERVAL_HOURS = 4
 USENET_CATEGORY = 5060
+TORRENT_TRACKER_DOMAINS = {"sportscult.org", "720pier.ru"}
 
 
 def _now_iso() -> str:
@@ -71,6 +72,27 @@ def fetch_usenet_indexers() -> list[dict]:
         if idx.get("enable")
         and idx.get("protocol") == "usenet"
         and _has_category(idx.get("capabilities", {}).get("categories", []), USENET_CATEGORY)
+    ]
+
+
+def _matches_tracker_domain(idx: dict) -> bool:
+    defn = idx.get("definitionName", "").lower()
+    field_values = " ".join(str(f.get("value", "")) for f in idx.get("fields", []))
+    for domain in TORRENT_TRACKER_DOMAINS:
+        key = domain.split(".")[0]  # "sportscult", "720pier"
+        if key in defn or domain in field_values:
+            return True
+    return False
+
+
+def fetch_torrent_indexers() -> list[dict]:
+    """Return enabled torrent indexers matching TORRENT_TRACKER_DOMAINS."""
+    indexers = _fetch_json("/api/v1/indexer")
+    return [
+        idx for idx in indexers
+        if idx.get("enable")
+        and idx.get("protocol") == "torrent"
+        and _matches_tracker_domain(idx)
     ]
 
 
@@ -156,13 +178,25 @@ def get_indexer_statuses() -> list[IndexerStatus]:
     ]
 
 
+def _log_indexer_group(label: str, statuses: list[IndexerStatus]) -> None:
+    if not statuses:
+        return
+    lines = [f"[prowlarr] {label}:"]
+    for s in statuses:
+        health = "ok" if s.ok else f"degraded (disabled_till={s.disabled_till})"
+        lines.append(f"  • {s.name} (id={s.id}) — {health}")
+    logger.info("\n".join(lines))
+
+
 def _sync_indexers() -> list[IndexerStatus]:
-    indexers = fetch_usenet_indexers()
-    if not indexers:
-        logger.info("[prowlarr] no enabled Newznab/usenet indexers found for category %d", USENET_CATEGORY)
+    usenet = fetch_usenet_indexers()
+    torrent = fetch_torrent_indexers()
+    all_indexers = usenet + torrent
+
+    if not all_indexers:
         return []
 
-    _upsert_indexers(indexers)
+    _upsert_indexers(all_indexers)
 
     try:
         statuses = _fetch_json("/api/v1/indexerstatus")
@@ -171,15 +205,15 @@ def _sync_indexers() -> list[IndexerStatus]:
         logger.warning("[prowlarr] could not fetch indexer statuses: %s", exc)
         failure_map = {}
 
-    indexer_statuses = _upsert_indexer_statuses(indexers, failure_map)
+    usenet_ids = {idx["id"] for idx in usenet}
+    all_statuses = _upsert_indexer_statuses(all_indexers, failure_map)
+    usenet_statuses = [s for s in all_statuses if s.id in usenet_ids]
+    torrent_statuses = [s for s in all_statuses if s.id not in usenet_ids]
 
-    lines = [f"[prowlarr] usenet indexers (category {USENET_CATEGORY}):"]
-    for s in indexer_statuses:
-        health = "ok" if s.ok else f"degraded (disabled_till={s.disabled_till})"
-        lines.append(f"  • {s.name} (id={s.id}) — {health}")
-    logger.info("\n".join(lines))
+    _log_indexer_group(f"usenet indexers (category {USENET_CATEGORY})", usenet_statuses)
+    _log_indexer_group("torrent indexers", torrent_statuses)
 
-    return indexer_statuses
+    return all_statuses
 
 
 # ── Health check ──────────────────────────────────────────────────────
