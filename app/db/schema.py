@@ -84,6 +84,24 @@ CREATE TABLE IF NOT EXISTS nflverse_sync (
 
 CREATE INDEX IF NOT EXISTS idx_nflverse_sync_dataset_started
     ON nflverse_sync (dataset, started_at DESC);
+
+CREATE TABLE IF NOT EXISTS prowlarr_indexers (
+    id              INTEGER PRIMARY KEY,
+    name            TEXT NOT NULL,
+    protocol        TEXT NOT NULL,
+    implementation  TEXT NOT NULL,
+    enabled         INTEGER NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS prowlarr_indexer_status (
+    indexer_id          INTEGER PRIMARY KEY REFERENCES prowlarr_indexers(id),
+    ok                  INTEGER NOT NULL,
+    checked_at          TEXT NOT NULL,
+    initial_failure     TEXT,
+    most_recent_failure TEXT,
+    disabled_till       TEXT
+);
 """
 
 

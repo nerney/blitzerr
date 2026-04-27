@@ -1,4 +1,5 @@
 import logging
+import logging.config
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -9,11 +10,6 @@ from app.core.scheduler import start_scheduler, stop_scheduler
 from app.db.schema import init_db
 from app.api.router import api_router
 
-logging.basicConfig(
-    level=settings.server.log_level.upper(),
-    format="%(asctime)s %(levelname)s %(name)s - %(message)s",
-)
-
 _BANNER = r"""
         _.-=""=-._
       .'\\-++++-//'.
@@ -21,6 +17,37 @@ _BANNER = r"""
       './/      \\.'
         `'-=..=-'`
 """
+
+
+def _log_config(level: str) -> dict:
+    lvl = level.upper()
+    return {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "format": "%(asctime)s %(levelname)-8s %(name)s - %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            }
+        },
+        "handlers": {
+            "stdout": {
+                "class": "logging.StreamHandler",
+                "stream": "ext://sys.stdout",
+                "formatter": "default",
+            }
+        },
+        "root": {"level": lvl, "handlers": ["stdout"]},
+        "loggers": {
+            "uvicorn":        {"propagate": True, "level": lvl},
+            "uvicorn.error":  {"propagate": True, "level": lvl},
+            "uvicorn.access": {"propagate": True, "level": lvl},
+        },
+    }
+
+
+# Configure logging before anything else imports the logging module
+logging.config.dictConfig(_log_config(settings.server.log_level))
 
 
 @asynccontextmanager
@@ -49,7 +76,7 @@ if __name__ == "__main__":
         "main:app",
         host=settings.server.host,
         port=settings.server.port,
-        log_level=settings.server.log_level,
+        log_config=_log_config(settings.server.log_level),
         server_header=False,
         reload=False,
     )
