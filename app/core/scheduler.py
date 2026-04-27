@@ -7,13 +7,16 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.config import NFLVERSE_REFRESH_HOURS
 from app.services.nflverse_sync import sync_all_if_stale
+from app.services.prowlarr import check_health as prowlarr_health, PROWLARR_HEALTH_INTERVAL_HOURS
 
 logger = logging.getLogger(__name__)
 
-scheduler = BackgroundScheduler(executors={"default": ThreadPoolExecutor(2)})
+scheduler = BackgroundScheduler(executors={"default": ThreadPoolExecutor(4)})
 
 
 def start_scheduler() -> None:
+    now = datetime.now(timezone.utc)
+
     scheduler.add_job(
         sync_all_if_stale,
         trigger=IntervalTrigger(hours=NFLVERSE_REFRESH_HOURS),
@@ -22,18 +25,34 @@ def start_scheduler() -> None:
         max_instances=1,
         misfire_grace_time=3600,
     )
-    scheduler.start()
-    logger.info("Scheduler started")
-
-    # Fire an immediate one-shot check on startup
     scheduler.add_job(
         sync_all_if_stale,
         trigger="date",
-        run_date=datetime.now(timezone.utc),
+        run_date=now,
         id="nflverse_sync_startup",
         replace_existing=True,
         max_instances=1,
     )
+
+    scheduler.add_job(
+        prowlarr_health,
+        trigger=IntervalTrigger(hours=PROWLARR_HEALTH_INTERVAL_HOURS),
+        id="prowlarr_health",
+        replace_existing=True,
+        max_instances=1,
+        misfire_grace_time=600,
+    )
+    scheduler.add_job(
+        prowlarr_health,
+        trigger="date",
+        run_date=now,
+        id="prowlarr_health_startup",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.start()
+    logger.info("Scheduler started")
 
 
 def stop_scheduler() -> None:

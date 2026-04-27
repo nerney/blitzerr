@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from app.db.connection import check_db_connectivity
 from app.services.nflverse_sync import get_last_sync_info
+from app.services.prowlarr import get_status as prowlarr_status
 
 router = APIRouter(prefix="/api", tags=["health"])
 
@@ -20,11 +21,18 @@ class SyncStatus(BaseModel):
     rows_upserted: Optional[int]
 
 
+class ServiceStatus(BaseModel):
+    ok: bool
+    checked_at: Optional[str]
+    message: Optional[str]
+
+
 class HealthResponse(BaseModel):
     status: str
     version: str
     db_connected: bool
     nflverse_sync: list[SyncStatus]
+    prowlarr: ServiceStatus
     uptime_seconds: float
 
 
@@ -50,10 +58,14 @@ async def health():
                 rows_upserted=None,
             ))
 
+    ps = prowlarr_status()
+
+    overall_ok = db_connected and ps.ok
     return HealthResponse(
-        status="ok" if db_connected else "degraded",
+        status="ok" if overall_ok else "degraded",
         version=VERSION,
         db_connected=db_connected,
         nflverse_sync=sync_statuses,
+        prowlarr=ServiceStatus(ok=ps.ok, checked_at=ps.checked_at, message=ps.message),
         uptime_seconds=round(time.monotonic() - _START_TIME, 2),
     )
