@@ -12,13 +12,11 @@ RUN npm run build
 # ── Stage 2: Final image — hotio/base (Alpine) ───────────────────────
 FROM ghcr.io/hotio/base:alpinevpn
 
-# Install Python 3 + compile C extensions for uvicorn/pyyaml, then strip build deps
+# Install Python 3; all deps have musllinux wheels so no build toolchain needed
 COPY requirements.txt /tmp/requirements.txt
 RUN apk add --no-cache python3 \
-    && apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev libyaml-dev \
     && python3 -m venv /app/.venv \
     && /app/.venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt \
-    && apk del .build-deps \
     && rm /tmp/requirements.txt
 
 # Copy application code
