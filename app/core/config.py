@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-CONFIG_DIR = Path(os.environ.get("BLITZERR_CONFIG_DIR", "/opt/blitzerr"))
+CONFIG_DIR = Path(os.environ.get("BLITZERR_CONFIG_DIR", "/config"))
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 DB_PATH = CONFIG_DIR / "blitzerr.db"
 

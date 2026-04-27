@@ -9,29 +9,31 @@ COPY frontend/ ./
 RUN npm run build
 
 
-# ── Stage 2: Python runtime ──────────────────────────────────────────
-FROM python:3.13-slim AS final
+# ── Stage 2: Final image — hotio/base (Alpine) ───────────────────────
+FROM ghcr.io/hotio/base:latest
 
-# ca-certificates required for urllib HTTPS to GitHub (not present in slim)
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+# Install Python 3 + compile C extensions for uvicorn/pyyaml, then strip build deps
+COPY requirements.txt /tmp/requirements.txt
+RUN apk add --no-cache python3 \
+    && apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev libyaml-dev \
+    && python3 -m venv /app/.venv \
+    && /app/.venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt \
+    && apk del .build-deps \
+    && rm /tmp/requirements.txt
 
+# Copy application code
 WORKDIR /app
-
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-
 COPY main.py ./
 COPY app/ ./app/
 
+# Copy compiled frontend assets (served in a later milestone)
 COPY --from=frontend-build /build/frontend/build ./frontend/build
 
-RUN mkdir -p /opt/blitzerr
-
-EXPOSE 8012
+# Overlay s6 service definitions and any root filesystem additions
+COPY root/ /
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    APP_PORT=8012
 
-CMD ["python", "main.py"]
+EXPOSE 8012
