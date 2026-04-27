@@ -9,6 +9,7 @@ from app.core.config import NFLVERSE_REFRESH_HOURS
 from app.services.nflverse_sync import sync_all_if_stale
 from app.services.prowlarr import check_health as prowlarr_health, PROWLARR_HEALTH_INTERVAL_HOURS
 from app.services.qbittorrent import check_health as qbittorrent_health, QBITTORRENT_CHECK_INTERVAL_SECONDS
+from app.services.sabnzbd import check_health as sabnzbd_health, SABNZBD_CHECK_INTERVAL_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,23 @@ def start_scheduler() -> None:
         trigger="date",
         run_date=now,
         id="qbittorrent_health_startup",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.add_job(
+        sabnzbd_health,
+        trigger=IntervalTrigger(seconds=SABNZBD_CHECK_INTERVAL_SECONDS),
+        id="sabnzbd_health",
+        replace_existing=True,
+        max_instances=1,
+        misfire_grace_time=30,
+    )
+    scheduler.add_job(
+        sabnzbd_health,
+        trigger="date",
+        run_date=now,
+        id="sabnzbd_health_startup",
         replace_existing=True,
         max_instances=1,
     )

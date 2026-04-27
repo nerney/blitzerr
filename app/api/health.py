@@ -8,6 +8,7 @@ from app.db.connection import check_db_connectivity
 from app.services.nflverse_sync import get_last_sync_info
 from app.services.prowlarr import get_status as prowlarr_status, get_indexer_statuses
 from app.services.qbittorrent import get_status as qbittorrent_status
+from app.services.sabnzbd import get_status as sabnzbd_status
 
 router = APIRouter(prefix="/api", tags=["health"])
 
@@ -53,6 +54,22 @@ class QBittorrentServiceStatus(BaseModel):
     downloads: list[TorrentInfo] = []
 
 
+class NzbInfo(BaseModel):
+    nzo_id: str
+    name: str
+    status: str
+    progress: float
+    size_mb: float
+    category: str
+
+
+class SabnzbdServiceStatus(BaseModel):
+    ok: bool
+    checked_at: Optional[str]
+    message: Optional[str]
+    downloads: list[NzbInfo] = []
+
+
 class HealthResponse(BaseModel):
     status: str
     version: str
@@ -60,6 +77,7 @@ class HealthResponse(BaseModel):
     nflverse_sync: list[SyncStatus]
     prowlarr: ServiceStatus
     qbittorrent: QBittorrentServiceStatus
+    sabnzbd: SabnzbdServiceStatus
     uptime_seconds: float
 
 
@@ -103,7 +121,14 @@ async def health():
         for d in qs.downloads
     ]
 
-    overall_ok = db_connected and ps.ok and qs.ok
+    ss = sabnzbd_status()
+    nzbs = [
+        NzbInfo(nzo_id=d.nzo_id, name=d.name, status=d.status,
+                progress=d.progress, size_mb=d.size_mb, category=d.category)
+        for d in ss.downloads
+    ]
+
+    overall_ok = db_connected and ps.ok and qs.ok and ss.ok
     return HealthResponse(
         status="ok" if overall_ok else "degraded",
         version=VERSION,
@@ -120,6 +145,12 @@ async def health():
             checked_at=qs.checked_at,
             message=qs.message,
             downloads=downloads,
+        ),
+        sabnzbd=SabnzbdServiceStatus(
+            ok=ss.ok,
+            checked_at=ss.checked_at,
+            message=ss.message,
+            downloads=nzbs,
         ),
         uptime_seconds=round(time.monotonic() - _START_TIME, 2),
     )
