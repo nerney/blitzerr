@@ -132,8 +132,10 @@ def _log_config(s: Settings) -> None:
             parts.append(f"{f.name}={val}")
         return "  ".join(parts)
 
+    lines = ["[config]"]
     for key, _ in _SECTIONS:
-        logger.info("[config] %-12s %s", key + ":", fmt(getattr(s, key)))
+        lines.append(f"  {key + ':':<12} {fmt(getattr(s, key))}")
+    logger.info("\n".join(lines))
 
 
 # ── Main loader ───────────────────────────────────────────────────────

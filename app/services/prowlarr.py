@@ -173,10 +173,11 @@ def _sync_indexers() -> list[IndexerStatus]:
 
     indexer_statuses = _upsert_indexer_statuses(indexers, failure_map)
 
-    logger.info("[prowlarr] Newznab/usenet indexers supporting category %d:", USENET_CATEGORY)
+    lines = [f"[prowlarr] usenet indexers (category {USENET_CATEGORY}):"]
     for s in indexer_statuses:
         health = "ok" if s.ok else f"degraded (disabled_till={s.disabled_till})"
-        logger.info("[prowlarr]   • %s (id=%d) — %s", s.name, s.id, health)
+        lines.append(f"  • {s.name} (id={s.id}) — {health}")
+    logger.info("\n".join(lines))
 
     return indexer_statuses
 
