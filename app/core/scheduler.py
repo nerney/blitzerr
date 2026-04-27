@@ -1,5 +1,7 @@
 import logging
+import os
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -13,7 +15,20 @@ from app.services.sabnzbd import check_health as sabnzbd_health, SABNZBD_CHECK_I
 
 logger = logging.getLogger(__name__)
 
-scheduler = BackgroundScheduler(executors={"default": ThreadPoolExecutor(4)})
+
+def _scheduler_tz() -> ZoneInfo:
+    tz_name = os.environ.get("TZ", "UTC")
+    try:
+        return ZoneInfo(tz_name)
+    except (ZoneInfoNotFoundError, KeyError):
+        logger.warning("Unknown TZ=%r, falling back to UTC", tz_name)
+        return ZoneInfo("UTC")
+
+
+scheduler = BackgroundScheduler(
+    executors={"default": ThreadPoolExecutor(4)},
+    timezone=_scheduler_tz(),
+)
 
 
 def start_scheduler() -> None:

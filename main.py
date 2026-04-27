@@ -39,7 +39,8 @@ def _log_config(level: str) -> dict:
         },
         "root": {"level": lvl, "handlers": ["stdout"]},
         "loggers": {
-            "uvicorn":        {"propagate": True, "level": lvl},
+            "uvicorn":      {"propagate": True, "level": lvl},
+            "apscheduler":  {"propagate": True, "level": "WARNING"},
         },
     }
 
