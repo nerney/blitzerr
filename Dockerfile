@@ -10,7 +10,7 @@ RUN npm run build
 
 
 # ── Stage 2: Final image — hotio/base (Alpine) ───────────────────────
-FROM ghcr.io/hotio/base:latest
+FROM ghcr.io/hotio/base:alpinevpn
 
 # Install Python 3 + compile C extensions for uvicorn/pyyaml, then strip build deps
 COPY requirements.txt /tmp/requirements.txt
